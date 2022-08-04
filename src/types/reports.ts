@@ -1,0 +1,1 @@
+export type ReportType = "general" | "houses" | "unique"

@@ -1,18 +1,27 @@
 import {Fade, Modal, Box, Typography, Grid} from "@mui/material";
 import notFoundImage from "../../assets/not-found-image.jpeg";
 import {House} from "../../types/houses";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {getHouseImageUrl} from "../../api/houses";
+import {Child} from "../../types/children";
+import {getChild, getChildImageUrl} from "../../api/children";
 
 type Props = {
-    house: House,
+    child: Child,
     open: boolean,
     onClose: () => void
 }
 
-export function HouseModal({ house, open, onClose }: Props) {
-    if (!house) return <></>
-    const [url, setUrl] = useState(getHouseImageUrl(house))
+export function ChildModal({ child, open, onClose }: Props) {
+    if (!child) return null
+
+    const [url, setUrl] = useState(getChildImageUrl(child)),
+        [relatedBeneficiaries, setRelatedBeneficiaries] = useState<Child[] | null>(null)
+
+    useEffect(() => {
+        Promise.all(child.relBen.map(getChild)).then(setRelatedBeneficiaries)
+    }, [])
+
     return (
         <Modal
             open={open}
@@ -55,55 +64,72 @@ export function HouseModal({ house, open, onClose }: Props) {
                     }}>
                        <Grid container spacing={4}>
                             <Grid item xs={6}>
-                                <Typography variant={"subtitle2"}>RIF DE LA CASA</Typography>
-                                <Typography variant={"body1"}>J-{house.rif}</Typography>
+                                <Typography variant={"subtitle2"}>CEDULA DE IDENTIDAD</Typography>
+                                <Typography variant={"body1"}>{child.information.ci}</Typography>
+                            </Grid>
+                           <Grid item xs={6}>
+                               <Typography variant={"subtitle2"}>FECHA DE NACIMIENTO</Typography>
+                               <Typography variant={"body1"}>{child.information.birthdate}</Typography>
+                           </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant={"subtitle2"}>NOMBRE</Typography>
+                                <Typography variant={"body1"}>{child.information.name}</Typography>
+                            </Grid>
+                           <Grid item xs={6}>
+                               <Typography variant={"subtitle2"}>APELLIDO</Typography>
+                               <Typography variant={"body1"}>{child.information.lastname}</Typography>
+                           </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant={"subtitle2"}>MADRE</Typography>
+                                <Typography variant={"body1"}>
+                                    {child.mother ? `${child.mother.name} ${child.mother.lastname}` : 'Fallecida'}
+                                </Typography>
                             </Grid>
                             <Grid item xs={6}>
-                                <Typography variant={"subtitle2"}>NOMBRE DE LA CASA</Typography>
-                                <Typography variant={"body1"}>{house.name}</Typography>
+                                <Typography variant={"subtitle2"}>PADRE</Typography>
+                                <Typography variant={"body1"}>
+                                    {child.father ? `${child.father.name} ${child.father.lastname}` : 'Fallecido'}
+                                </Typography>
                             </Grid>
                            <Grid item xs={12}>
-                               <Typography variant={"subtitle2"}>PERSONA CONTACTO</Typography>
-                               <Typography variant={"body1"}>{house.contact.name} {house.contact.lastname}</Typography>
+                               <Typography variant={"subtitle2"}>REPRESENTANTE</Typography>
+                               <Typography variant={"body1"}>
+                                   {child.nonParent ? `${child.nonParent.name} ${child.nonParent.lastname}` : 'No tiene'}
+                               </Typography>
                            </Grid>
-                            <Grid item xs={12}>
-                                <Typography variant={"subtitle2"}>DIRECCION DE LA CASA</Typography>
-                                <Typography variant={"body1"}>{house.address}</Typography>
-                            </Grid>
-                            <Grid item xs={12}>
-                                <Typography variant={"subtitle2"}>NUMEROS DE TELEFONO DE CONTACTO</Typography>
-                                {house.phones.map(phone => (
-                                    <Typography variant={"body1"} key={phone}>{phone}</Typography>
-                                ))}
-                            </Grid>
-                            <Grid item xs={6}>
-                                <Typography variant={"subtitle2"}>EDAD MINIMA</Typography>
-                                <Typography variant={"body1"}>{house.minimumAge}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                                <Typography variant={"subtitle2"}>EDAD MAXIMA</Typography>
-                                <Typography variant={"body1"}>{house.maximumAge}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                                <Typography variant={"subtitle2"}>CUPOS MAXIMOS</Typography>
-                                <Typography variant={"body1"}>{house.maxShares}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                                <Typography variant={"subtitle2"}>CUPOS OCUPADOS</Typography>
-                                <Typography variant={"body1"}>{house.currentShares}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                                <Typography variant={"subtitle2"}>NIÑOS ATENDIDOS</Typography>
-                                <Typography variant={"body1"}>{house.currentBoysHelped}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                                <Typography variant={"subtitle2"}>NIÑAS ATENDIDAS</Typography>
-                                <Typography variant={"body1"}>{house.currentGirlsHelped}</Typography>
-                            </Grid>
-                           <Grid item xs={12}>
-                               <Typography variant={"subtitle2"}>HORARIO DE ATENCION</Typography>
-                               <Typography variant={"body1"}>{house.scheduleStartTime} - {house.scheduleEndTime}</Typography>
+                           <Grid item xs={6}>
+                               <Typography variant={"subtitle2"}>TALLA DE SHORT O PANTALON</Typography>
+                               <Typography variant={"body1"}>{child.attire.shortOrTrousersSize}</Typography>
                            </Grid>
+                           <Grid item xs={6}>
+                               <Typography variant={"subtitle2"}>TALLA DE CAMISA O CAMISETA</Typography>
+                               <Typography variant={"body1"}>{child.attire.tshirtOrshirtSize}</Typography>
+                           </Grid>
+                           {child.attire.sweaterSize && (
+                               <Grid item xs={6}>
+                                   <Typography variant={"subtitle2"}>TALLA DE SUÉTER</Typography>
+                                   <Typography variant={"body1"}>{child.attire.sweaterSize}</Typography>
+                               </Grid>
+                           )}
+                           {child.attire.dressSize && (
+                               <Grid item xs={6}>
+                                   <Typography variant={"subtitle2"}>TALLA DE VESTIDO</Typography>
+                                   <Typography variant={"body1"}>{child.attire.dressSize}</Typography>
+                               </Grid>
+                           )}
+                           <Grid item xs={6}>
+                               <Typography variant={"subtitle2"}>TALLA DE CALZADO</Typography>
+                               <Typography variant={"body1"}>{child.attire.footwearSize}</Typography>
+                           </Grid>
+                           {relatedBeneficiaries &&
+                               (<Grid item xs={12}>
+                                    <Typography variant={"subtitle2"}>BENEFICIARIOS RELACIONADOS</Typography>
+                                   {relatedBeneficiaries.map(({ id, information}, index) =>
+                                       id ?
+                                           (<Typography key={id} variant={"body1"}>{information?.name} {information?.lastname}</Typography>) :
+                                           (<Typography key={index} variant={"body2"} color={"red"}>BENEFICIARIO ELIMINADO</Typography>)
+                                   )}
+                               </Grid>)}
                         </Grid>
                     </Box>
                 </Box>

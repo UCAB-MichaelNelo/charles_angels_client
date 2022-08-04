@@ -5,9 +5,9 @@ import {
     Card,
     CardActions,
     CardContent,
-    CardMedia,
-    Grid,
-    Paper,
+    CardMedia, Fade, FormControl,
+    Grid, InputLabel, MenuItem,
+    Paper, Select,
     Skeleton,
     TextField,
     Typography,
@@ -15,168 +15,216 @@ import {
 import React, {useEffect, useMemo, useState} from "react";
 import {Link as RouterLink, useNavigate} from "react-router-dom";
 import notFoundImage from "../../assets/not-found-image.jpeg";
-import {HouseModal} from "./HouseModal";
-import {useAppDispatch} from "../../store";
-import {setHouse} from "../../store/house";
+import {useAppDispatch, useAppSelector} from "../../store";
 import {House} from "../../types/houses";
-import {deleteHouse, getHouseImageUrl, getHouses} from "../../api/houses";
+import {getHouses} from "../../api/houses";
+import {Child, HouseSelection} from "../../types/children";
+import {deleteChild, getChildImageUrl, getChildren} from "../../api/children";
+import {ChildModal} from "./ChildModal";
+import {setChild} from "../../store/children";
+import {selectIndexHouse, setIndexHouse} from "../../store/indexHouse";
+import AddButton from "../shared/AddButton";
 
-type HousesList = {
-    houses: House[] | null;
+type ChildrenList = {
+    children: Child[] | null;
 };
 
-type HouseGroups = [House, House, House, House][]
+type ChildGroups = [Child, Child, Child, Child][]
 
 const itemsPerRow = 5
 
-export default function HousesIndex() {
+export default function PeopleIndex() {
+
     const firstFill = useMemo(() => new Array(itemsPerRow).fill(1), []),
-        [list, setList] = useState<HousesList>({houses: null}),
+        [list, setList] = useState<ChildrenList>({children: null}),
+        [houseList, setHouseList] = useState<House[] | null>(null),
+        indexHouse = useAppSelector(selectIndexHouse),
+        [selectedHouse, setSelectedHouse] = useState<HouseSelection>(indexHouse ?? { id: "none" }),
         [filter, setFilter] = useState<string>(""),
-        [selectedHouse, setSelectedHouse] = useState<House | null>(null),
-        dispatch = useAppDispatch(),
         navigate = useNavigate(),
-        houses: HouseGroups | undefined = useMemo(
+        dispatch = useAppDispatch(),
+        [selectedChild, setSelectedChild] = useState<Child | null>(null),
+        children: ChildGroups | undefined = useMemo(
             () =>
-                list.houses
-                    ?.filter(house => house.name.toLowerCase().includes(filter.toLowerCase()))
-                    .reduce((chunks: HouseGroups, _, index, arr: House[]) => {
+                list.children
+                    ?.filter(
+                        child => child.information.name.toLowerCase().includes(filter.toLowerCase()) ||
+                            child.information.lastname.toLowerCase().includes(filter.toLowerCase())
+                    )
+                    .reduce((chunks: ChildGroups, _, index, arr: Child[]) => {
                         return (index % itemsPerRow == 0)
-                            ? [arr.slice(index, index + itemsPerRow), ...chunks] as HouseGroups
+                            ? [arr.slice(index, index + itemsPerRow), ...chunks] as ChildGroups
                             : chunks;
                     }, []),
             [list, filter]
         ),
-        editItem = (e: { stopPropagation: () => void}, house: House) => {
+        editItem = (e: { stopPropagation: () => void}, child: Child) => {
             e.stopPropagation()
 
-            dispatch(setHouse(house))
-            navigate('/casas/actualizar')
+            dispatch(setChild(child))
+
+            navigate('actualizar')
         },
-        deleteItem = async (e: { stopPropagation: () => void}, house: House) => {
+        deleteItem = async (e: { stopPropagation: () => void}, child: Child) => {
             e.stopPropagation()
 
-            if (!list?.houses) return
+            await deleteChild(child.id)
 
-            const idx = list?.houses?.indexOf(house)
+            if (!list?.children) return
 
-            await deleteHouse(house)
-
-            if (idx != -1) {
-                const [preList, postList] = [list.houses.slice(0, idx), list.houses.slice(idx + 1)]
-                setList({ houses: preList.concat(postList) })
-            }
+            if (selectedHouse) setSelectedHouse({ ...selectedHouse })
         }
 
     useEffect(() => {
-        getHouses()
-            .then((list) => setList({houses: list}));
-    }, []);
+        getHouses().then(houses => {
+            setHouseList(houses)
+        })
+    }, [])
+
+    useEffect(() => {
+        if (!selectedHouse) return
+
+        setList({ children: null })
+        getChildren(selectedHouse.id).then(children => setList({ children }))
+
+        dispatch(setIndexHouse(selectedHouse))
+    }, [selectedHouse])
+
+    console.log(indexHouse, selectedHouse)
 
     return (
         <>
+            {selectedChild && (
+                <ChildModal
+                    child={selectedChild}
+                    open={!!selectedChild}
+                    onClose={() => setSelectedChild(null)}
+                />)}
             <Box sx={{display: "flex", gap: 3}}>
+                <FormControl sx={{ width: '25%'}}>
+                    <InputLabel id="house-select">Seleccionar Casa...</InputLabel>
+                    <Select labelId="house-select"
+                            label="Seleccionar Casa..."
+                            value={selectedHouse ? selectedHouse.id : "none"}
+                            onChange={e => {
+                                const houseId = e.target.value
+
+                                if (houseId == "none")
+                                    setSelectedHouse({ id: "none" })
+                                else if (houseId != "none" && houseList)
+                                    setSelectedHouse(houseList.find(house => house.id == houseId) ?? { id: "none"})
+                            }}
+                    >
+                        {houseList && (<MenuItem value={"none"}>Sin Casa</MenuItem>)}
+                        {houseList && houseList.map(house => (
+                            <MenuItem key={house.id} value={house.id} >{house.name}</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
                 <TextField
                     fullWidth
                     variant="outlined"
-                    label="Buscar casa hogar"
+                    label="Buscar niño/niña beneficiaria"
                     sx={{backgroundColor: "#eee"}}
                     onChange={e => setFilter(e.target.value)}
                 ></TextField>
-                <Button variant="contained" component={RouterLink} to="crear">
-                    <AddOutlined fontSize="large"/>
-                </Button>
+                <AddButton popoverText="Crear beneficiario" route="crear" />
             </Box>
-            <HouseModal house={selectedHouse!} open={!!selectedHouse} onClose={() => setSelectedHouse(null)} />
-            <Box sx={{pt: 6}}>
-                <Grid container spacing={4}>
-                    {!list.houses &&
-                        firstFill.map((_, index) => (
-                            <React.Fragment key={index}>
-                                <Grid item xs={12 / itemsPerRow}>
-                                    <Paper variant="outlined" sx={{px: 2, pt: 0, pb: 3}}>
-                                        <Skeleton height={150}/>
-                                        <Skeleton height={30}/>
-                                    </Paper>
-                                </Grid>
-                                <Grid item xs={12 / itemsPerRow}>
-                                    <Paper variant="outlined" sx={{px: 2, pt: 0, pb: 3}}>
-                                        <Skeleton height={150}/>
-                                        <Skeleton height={30}/>
-                                    </Paper>
-                                </Grid>
-                                <Grid item xs={12 / itemsPerRow}>
-                                    <Paper variant="outlined" sx={{px: 2, pt: 0, pb: 3}}>
-                                        <Skeleton height={150}/>
-                                        <Skeleton height={30}/>
-                                    </Paper>
-                                </Grid>
-                                <Grid item xs={12 / itemsPerRow}>
-                                    <Paper variant="outlined" sx={{px: 2, pt: 0, pb: 3}}>
-                                        <Skeleton height={150}/>
-                                        <Skeleton height={30}/>
-                                    </Paper>
-                                </Grid>
-                            </React.Fragment>
-                        ))}
-                    {houses &&
-                        houses.map(
-                            (houseGroup: House[], index: number) => (
+            <Fade in={!!list.children}>
+                <Box sx={{pt: 6}}>
+                    <Grid container spacing={4}>
+                        {!list.children &&
+                            firstFill.map((_, index) => (
                                 <React.Fragment key={index}>
-                                    {houseGroup.map((house) => (
-                                        <Grid item xs={12 / itemsPerRow} key={house.id}
-                                              onClick={() => setSelectedHouse(house)}>
-                                            {house && (
-                                                <Card variant="outlined" sx={{
-                                                    height: '100%',
-                                                    display: 'grid',
-                                                    cursor: 'pointer',
-                                                    '&:hover': {
-                                                        boxShadow: '-2px 2px 20px rgba(0 0 0 / 15%), ' +
-                                                            '2px -2px 20px rgba(0 0 0 / 15%), ' +
-                                                            '2px 2px 20px rgba(0 0 0 /15%), ' +
-                                                            '-2px -2px 20px rgba(0 0 0 / 15%)'
-                                                    }
-                                                }}>
-                                                    <CardMedia
-                                                        component="img"
-                                                        height={150}
-                                                        image={getHouseImageUrl(house)}
-                                                        onError={(e: any) => {
-                                                            e.preventDefault()
-                                                            e.target.src = notFoundImage
-                                                        }}
-                                                    />
-                                                    <CardContent>
-                                                        <Typography
-                                                            component="p"
-                                                            sx={{fontWeight: 600}}
-                                                            variant="subtitle1"
-                                                        >
-                                                            {house.name}
-                                                        </Typography>
-                                                        <Typography component="p" variant="subtitle2" gutterBottom>
-                                                            RIF: {house.rif}
-                                                        </Typography>
-                                                        <Typography component="p" variant="body1">
-                                                            {house.address}
-                                                        </Typography>
-                                                    </CardContent>
-                                                    <CardActions sx={{mt: 'auto'}}>
-                                                        <Button onClick={e => editItem(e, house)} variant="outlined">Editar</Button>
-                                                        <Button onClick={e => deleteItem(e, house)} color="error" variant="outlined">
-                                                            Eliminar
-                                                        </Button>
-                                                    </CardActions>
-                                                </Card>
-                                            )}
-                                        </Grid>
-                                    ))}
+                                    <Grid item key={`${index}-0`} xs={12 / itemsPerRow}>
+                                        <Paper variant="outlined" sx={{px: 2, pt: 0, pb: 3}}>
+                                            <Skeleton height={150}/>
+                                            <Skeleton height={30}/>
+                                        </Paper>
+                                    </Grid>
+                                    <Grid item key={`${index}-1`} xs={12 / itemsPerRow}>
+                                        <Paper variant="outlined" sx={{px: 2, pt: 0, pb: 3}}>
+                                            <Skeleton height={150}/>
+                                            <Skeleton height={30}/>
+                                        </Paper>
+                                    </Grid>
+                                    <Grid item key={`${index}-2`} xs={12 / itemsPerRow}>
+                                        <Paper variant="outlined" sx={{px: 2, pt: 0, pb: 3}}>
+                                            <Skeleton height={150}/>
+                                            <Skeleton height={30}/>
+                                        </Paper>
+                                    </Grid>
+                                    <Grid item key={`${index}-3`} xs={12 / itemsPerRow}>
+                                        <Paper variant="outlined" sx={{px: 2, pt: 0, pb: 3}}>
+                                            <Skeleton height={150}/>
+                                            <Skeleton height={30}/>
+                                        </Paper>
+                                    </Grid>
                                 </React.Fragment>
-                            )
-                        )}
-                </Grid>
-            </Box>
+                            ))}
+                        {children &&
+                            children.map(
+                                (childGroup: Child[], index: number) => (
+                                    <React.Fragment key={index}>
+                                        {childGroup.map((child) => (
+                                            <Grid item xs={12 / itemsPerRow} key={child.id}
+                                                onClick={() => setSelectedChild(child)}>
+                                                {child && (
+                                                    <Card variant="outlined" sx={{
+                                                        height: '100%',
+                                                        display: 'grid',
+                                                        cursor: 'pointer',
+                                                        '&:hover': {
+                                                            boxShadow: '-2px 2px 20px rgba(0 0 0 / 15%), ' +
+                                                                '2px -2px 20px rgba(0 0 0 / 15%), ' +
+                                                                '2px 2px 20px rgba(0 0 0 /15%), ' +
+                                                                '-2px -2px 20px rgba(0 0 0 / 15%)'
+                                                        }
+                                                    }}>
+                                                        <CardMedia
+                                                            component="img"
+                                                            height={150}
+                                                            image={getChildImageUrl(child)}
+                                                            onError={(e: any) => {
+                                                                e.preventDefault()
+                                                                e.target.src = notFoundImage
+                                                            }}
+                                                        />
+                                                        <CardContent>
+                                                            <Typography
+                                                                component="p"
+                                                                sx={{fontWeight: 600}}
+                                                                variant="subtitle1"
+                                                                gutterBottom
+                                                            >
+                                                                {child.information.name} {child.information.lastname}
+                                                            </Typography>
+                                                            <Typography component="p" variant="subtitle2" fontWeight={400}>
+                                                                CÉDULA: {child.information.ci}
+                                                            </Typography>
+                                                            <Typography component="p" variant="subtitle2" fontWeight={400}>
+                                                                SEXO: {child.attire.sweaterSize ? "Masculino" : "Femenino"}
+                                                            </Typography>
+                                                            <Typography component="p" variant="subtitle2" fontWeight={400}>
+                                                                NACIMIENTO: {child.information.birthdate}
+                                                            </Typography>
+                                                        </CardContent>
+                                                        <CardActions sx={{mt: 'auto'}}>
+                                                            <Button onClick={e => editItem(e, child)} variant="outlined">Editar</Button>
+                                                            <Button onClick={e => deleteItem(e, child)} color="error" variant="outlined">
+                                                                Eliminar
+                                                            </Button>
+                                                        </CardActions>
+                                                    </Card>
+                                                )}
+                                            </Grid>
+                                        ))}
+                                    </React.Fragment>
+                                )
+                            )}
+                    </Grid>
+                </Box>
+            </Fade>
         </>
     );
 }

@@ -1,5 +1,7 @@
+import {House} from "./houses";
+
 export type PersonalInformation = {
-    ci: number,
+    ci: string,
     name: string,
     lastname: string,
     birthdate: string
@@ -14,14 +16,22 @@ export type Attire = {
 }
 
 export type Child = {
+    houseId: string | null,
     id: string,
     sex: string,
     information: PersonalInformation,
     mother: PersonalInformation | null,
     father: PersonalInformation | null,
     nonParent: PersonalInformation | null,
-    relBen: PersonalInformation[],
+    relBen: string[],
     attire: Attire
 }
 
-export type FormChild = Child & { photo: FileList | null, houseId: string }
+export type PersonalInformationOfChild = {
+    information: PersonalInformation
+    childId: string
+}
+
+export type HouseSelection = { id: "none" } | House
+
+export type FormChild = Omit<Child, "relBen"> & { photo: FileList | null, relBen: { value: string }[] }
